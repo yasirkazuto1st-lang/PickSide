@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+:root {
+  --background: #090d16;
+  --foreground: #f8fafc;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Mirrored camera feed */
+.video-mirrored {
+  transform: scaleX(-1);
+  -webkit-transform: scaleX(-1);
+}
+
+/* Glassmorphism utilities */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-card {
+  background: rgba(30, 41, 59, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Pulsing highlight for results */
+@keyframes pulseGreen {
+  0%, 100% {
+    background-color: rgba(34, 197, 94, 0.35);
+  }
+  50% {
+    background-color: rgba(34, 197, 94, 0.5);
+  }
+}
+
+@keyframes pulseRed {
+  0%, 100% {
+    background-color: rgba(239, 68, 68, 0.35);
+  }
+  50% {
+    background-color: rgba(239, 68, 68, 0.5);
+  }
+}
+
+.animate-pulse-green {
+  animation: pulseGreen 1.5s infinite ease-in-out;
+}
+
+.animate-pulse-red {
+  animation: pulseRed 1.5s infinite ease-in-out;
+}
