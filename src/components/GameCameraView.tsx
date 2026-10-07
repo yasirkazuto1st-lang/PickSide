@@ -55,38 +55,90 @@ export default function GameCameraView({
   };
   const isLastQuestion = currentIndex >= questions.length - 1;
 
-  // Initialize camera
+  // Initialize camera with multiple fallback strategies for maximum browser & mobile compatibility
   const startCamera = useCallback(async () => {
+    setCameraError(null);
+
+    if (typeof window === "undefined") return;
+
+    // Check if mediaDevices API is available
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      console.warn("navigator.mediaDevices.getUserMedia is not supported.");
+      setCameraError("Browser tidak mendukung atau memblokir akses kamera langsung.");
+      setCameraActive(false);
+      setVirtualMode(true);
+      return;
+    }
+
     try {
-      setCameraError(null);
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-          facingMode: "user"
-        },
-        audio: false
-      });
+      let stream: MediaStream | null = null;
 
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play().catch(() => {});
+      // Strategy 1: Ideal 720p / 1080p user-facing camera
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "user",
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        });
+      } catch {
+        // Strategy 2: Relaxed user-facing camera
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "user" },
+            audio: false
+          });
+        } catch {
+          // Strategy 3: Any available video stream
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false
+          });
+        }
       }
-      setCameraActive(true);
-      setVirtualMode(false);
-    } catch {
-      setCameraError("Kamera tidak dapat diakses atau izin ditolak. Mengaktifkan mode virtual.");
+
+      if (stream) {
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.muted = true;
+          videoRef.current.play().catch((playErr) => {
+            console.warn("Auto-play error:", playErr);
+          });
+        }
+        setCameraActive(true);
+        setVirtualMode(false);
+      }
+    } catch (err: any) {
+      console.warn("Camera access failed:", err);
+      const isPermissionDenied = err.name === "NotAllowedError" || err.name === "PermissionDeniedError";
+      setCameraError(
+        isPermissionDenied
+          ? "Izin kamera ditolak. Silakan klik ikon gembok/kamera di address bar browser untuk mengizinkan akses kamera."
+          : "Kamera tidak dapat diakses atau sedang digunakan oleh aplikasi lain."
+      );
       setCameraActive(false);
       setVirtualMode(true);
     }
   }, []);
 
-  // Cleanup camera stream
+  // Ensure stream stays bound to video element if it re-renders
+  useEffect(() => {
+    if (streamRef.current && videoRef.current && videoRef.current.srcObject !== streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.muted = true;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [cameraActive, virtualMode]);
+
+  // Cleanup camera stream on unmount
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
@@ -185,39 +237,44 @@ export default function GameCameraView({
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-slate-950 select-none flex flex-col justify-between">
-      {/* 1. CAMERA BACKGROUND (Mirrored WebRTC Video - Jernih Tanpa Blur) */}
-      <div className="absolute inset-0 w-full h-full z-0 overflow-hidden">
-        {cameraActive && !virtualMode ? (
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className={`w-full h-full object-cover ${isMirrored ? "video-mirrored" : ""}`}
-          />
-        ) : (
-          /* Virtual Stage fallback if camera unavailable */
-          <div className="w-full h-full bg-slate-900 relative flex items-center justify-center">
-            <div className="text-center z-10 p-6 max-w-sm bg-slate-900/95 rounded-3xl border border-white/15 shadow-2xl">
-              <CameraOff className="w-10 h-10 text-indigo-400 mx-auto mb-2" />
-              <h3 className="font-bold text-base text-white mb-1">Mode Kamera Virtual</h3>
-              <p className="text-xs text-slate-300 mb-4">
-                Kamera fisik sedang tidak aktif. Permainan tetap dapat berjalan di layar.
+      {/* 1. CAMERA BACKGROUND (Always mounted in DOM to prevent React ref detachment) */}
+      <div className="absolute inset-0 w-full h-full z-0 overflow-hidden bg-slate-950">
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className={`w-full h-full object-cover transition-opacity duration-300 ${
+            cameraActive && !virtualMode ? "opacity-100" : "opacity-0 pointer-events-none"
+          } ${isMirrored ? "video-mirrored" : ""}`}
+        />
+
+        {/* Fallback Virtual Studio when camera is not connected / permission denied */}
+        {(!cameraActive || virtualMode) && (
+          <div className="absolute inset-0 w-full h-full bg-slate-900 flex items-center justify-center p-4">
+            <div className="text-center z-10 p-6 sm:p-8 max-w-md bg-slate-950 border border-slate-800 rounded-3xl shadow-2xl">
+              <CameraOff className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+              <h3 className="font-bold text-lg text-white mb-2">Akses Kamera Diperlukan</h3>
+              <p className="text-xs text-slate-300 mb-6 leading-relaxed">
+                {cameraError ||
+                  "Kamera belum aktif. Pastikan Anda mengklik 'Allow / Izinkan' pada popup izin kamera browser Anda."}
               </p>
-              <button
-                type="button"
-                onClick={startCamera}
-                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white transition-all cursor-pointer inline-flex items-center gap-1.5"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Coba Sambungkan Kamera</span>
-              </button>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={startCamera}
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Izinkan & Hubungkan Kamera</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* 2. FULL SCREEN SPLIT OVERLAY (Sisi Kiri & Kanan Langsung Full Tanpa Card & Tanpa Blur) */}
+      {/* 2. FULL SCREEN SPLIT OVERLAY (Sisi Kiri & Kanan - No Blur, Clean Solid Tints on Reveal) */}
       <div className="absolute inset-0 z-10 grid grid-cols-2 pointer-events-none">
         {/* SISI KIRI (FULL HALF) */}
         <div
@@ -258,7 +315,7 @@ export default function GameCameraView({
             )}
           </div>
 
-          {/* Option 1 Text (Langsung bersih tanpa card) */}
+          {/* Option 1 Text (Directly on screen without card) */}
           <div className="text-center my-auto px-4">
             <p className="text-4xl sm:text-6xl md:text-7xl font-black text-white tracking-tight break-words drop-shadow-[0_4px_18px_rgba(0,0,0,0.95)]">
               {currentQuestion.option1}
@@ -310,7 +367,7 @@ export default function GameCameraView({
             </span>
           </div>
 
-          {/* Option 2 Text (Langsung bersih tanpa card) */}
+          {/* Option 2 Text (Directly on screen without card) */}
           <div className="text-center my-auto px-4">
             <p className="text-4xl sm:text-6xl md:text-7xl font-black text-white tracking-tight break-words drop-shadow-[0_4px_18px_rgba(0,0,0,0.95)]">
               {currentQuestion.option2}
@@ -332,7 +389,7 @@ export default function GameCameraView({
         </div>
       </div>
 
-      {/* 3. TOP HEADER BAR & WHITE QUESTION CARD */}
+      {/* 3. TOP HEADER BAR & SOLID WHITE QUESTION CARD */}
       <div className="relative z-30 w-full px-4 sm:px-6 pt-3 pointer-events-auto">
         {/* Navigation Bar */}
         <header className="flex items-center justify-between mb-2">
@@ -407,7 +464,7 @@ export default function GameCameraView({
           </div>
         </header>
 
-        {/* 4. SOLID WHITE QUESTION CARD (Hanya soal yang memakai card putih, posisi pas dan jelas) */}
+        {/* 4. SOLID WHITE QUESTION CARD */}
         <div className="max-w-3xl mx-auto mt-1">
           <div className="bg-white border-2 border-slate-200 rounded-2xl p-4 sm:p-5 shadow-2xl text-center">
             <h2 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight leading-snug">
