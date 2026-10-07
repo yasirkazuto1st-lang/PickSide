@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "PickSide - Interactive English Learning Game",
   description: "A camera-based interactive English quiz game. Stand left or right to choose your answer!",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

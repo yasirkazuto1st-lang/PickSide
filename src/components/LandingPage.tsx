@@ -3,6 +3,7 @@
 import React from "react";
 import { ArrowRight, Play, Camera, Clock, MoveHorizontal, BookOpen, Sparkles, Award } from "lucide-react";
 import { sound } from "@/utils/sound";
+import PickSideLogo from "@/components/PickSideLogo";
 
 interface LandingPageProps {
   onStart: () => void;
@@ -18,9 +19,7 @@ export default function LandingPage({ onStart }: LandingPageProps) {
       {/* Navigation Header */}
       <header className="w-full max-w-6xl mx-auto px-6 py-6 flex items-center justify-between z-10">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white font-black text-base flex items-center justify-center shadow-md shadow-indigo-950">
-            PS
-          </div>
+          <PickSideLogo size={40} />
           <div>
             <span className="font-extrabold text-xl tracking-tight text-white">
               PickSide

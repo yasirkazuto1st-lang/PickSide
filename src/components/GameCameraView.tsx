@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { QuestionItem, GameSettings } from "@/types/quiz";
 import { sound } from "@/utils/sound";
+import PickSideLogo from "@/components/PickSideLogo";
 
 interface GameCameraViewProps {
   questions: QuestionItem[];
@@ -231,7 +232,6 @@ export default function GameCameraView({
     }
   };
 
-  const timerProgress = (timeLeft / settings.timerDuration) * 100;
   const isCorrectLeft = currentQuestion.correctOption === 1;
   const isCorrectRight = currentQuestion.correctOption === 2;
 
@@ -418,9 +418,7 @@ export default function GameCameraView({
 
           {/* Center Brand */}
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-white text-zinc-950 font-black text-[11px] flex items-center justify-center">
-              PS
-            </div>
+            <PickSideLogo size={28} />
             <span className="font-bold text-sm tracking-wide text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
               PickSide
             </span>
@@ -497,27 +495,31 @@ export default function GameCameraView({
 
         {/* Center: Circular Countdown Timer */}
         <div className="w-1/3 flex justify-center">
-          <div className="relative flex items-center justify-center">
-            <svg className="w-16 h-16 sm:w-20 sm:h-20 -rotate-90 transform">
+          <div className="relative flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20">
+            <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90 transform">
+              {/* Background track */}
               <circle
-                cx="50%"
-                cy="50%"
-                r="40%"
+                cx="50"
+                cy="50"
+                r="42"
                 className="stroke-black/60 fill-black/60"
                 strokeWidth="7"
               />
+              {/* Animated progress ring — circumference = 2 * π * 42 ≈ 263.89 */}
               <circle
-                cx="50%"
-                cy="50%"
-                r="40%"
-                className={`transition-all duration-300 ${
+                cx="50"
+                cy="50"
+                r="42"
+                className={`transition-[stroke-dashoffset] duration-[950ms] ease-linear ${
                   timeLeft <= 3
-                    ? "stroke-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.6)]"
+                    ? "stroke-rose-500"
+                    : timeLeft <= 5
+                    ? "stroke-amber-400"
                     : "stroke-white"
                 }`}
                 strokeWidth="7"
-                strokeDasharray="251"
-                strokeDashoffset={251 - (251 * timerProgress) / 100}
+                strokeDasharray={2 * Math.PI * 42}
+                strokeDashoffset={2 * Math.PI * 42 * (1 - timeLeft / settings.timerDuration)}
                 strokeLinecap="round"
                 fill="transparent"
               />
